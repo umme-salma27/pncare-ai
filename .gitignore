@@ -1,0 +1,5 @@
+# full Colab bundle contains BDHS microdata (SHAP background rows): never publish
+pnc_bundle.joblib
+pnc_questions_13.json
+__pycache__/
+*.pyc

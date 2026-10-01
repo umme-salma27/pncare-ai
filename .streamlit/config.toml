@@ -1,0 +1,12 @@
+[theme]
+base = "light"
+primaryColor = "#0f766e"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0fdfa"
+textColor = "#0f172a"
+
+[server]
+maxUploadSize = 20
+
+[client]
+toolbarMode = "viewer"
