@@ -393,24 +393,25 @@ tab_one, tab_batch = st.tabs([":material/person: Risk assessment", ":material/gr
 # Tab 1: one mother
 # ----------------------------------------------------------------------------------------------
 with tab_one:
-    left, right = st.columns([1.05, 1], gap="large")
-    with left:
-        x = {}
+    x = {}
 
-        def pick(key, label, help_text=None):
-            s = SPEC[key]
-            if s["kind"] == "cat":
-                labels = list(s["options"])
-                default = s["display"].get(REFERENCE[key], labels[0])
-                x[key] = s["options"][st.selectbox(label, labels, index=labels.index(default), key=key, help=help_text)]
-            elif s["kind"] == "num":
-                x[key] = float(st.number_input(label, min_value=s["min"], max_value=s["max"], value=int(REFERENCE[key]),
-                                               step=1, key=key, help=help_text))
-            else:
-                x[key] = YES_NO[st.radio(label, list(YES_NO), index=0 if REFERENCE[key] else 1, horizontal=True, key=key,
-                                         help=help_text)]
+    def pick(key, label, help_text=None):
+        s = SPEC[key]
+        if s["kind"] == "cat":
+            labels = list(s["options"])
+            default = s["display"].get(REFERENCE[key], labels[0])
+            x[key] = s["options"][st.selectbox(label, labels, index=labels.index(default), key=key, help=help_text)]
+        elif s["kind"] == "num":
+            x[key] = float(st.number_input(label, min_value=s["min"], max_value=s["max"], value=int(REFERENCE[key]),
+                                           step=1, key=key, help=help_text))
+        else:
+            x[key] = YES_NO[st.radio(label, list(YES_NO), index=0 if REFERENCE[key] else 1, horizontal=True, key=key,
+                                     help=help_text)]
 
-        with st.container(border=True):
+    # ---------------- input form: two equal halves, button across the full width ----------------
+    with st.container(border=True):
+        form_left, form_right = st.columns(2, gap="large")
+        with form_left:
             st.markdown('<div class="sec">Place of delivery and antenatal care</div>'
                         '<div class="feat">Features: delivery place group (home / public / private), 5 facility types, '
                         'facility delivery x 2022, home birth in a rural area, ANC visits, no ANC visit</div>',
@@ -432,6 +433,7 @@ with tab_one:
                 pick("edu", "Education")
                 pick("residence", "Residence")
 
+        with form_right:
             st.markdown('<div class="sec">Media exposure</div>'
                         '<div class="feat">Features: media exposure index (0-6), any media exposure</div>',
                         unsafe_allow_html=True)
@@ -445,7 +447,7 @@ with tab_one:
 
             st.markdown('<div class="sec">Vulnerability score</div>'
                         '<div class="feat">Feature: vulnerability score (0-7). Education, rural residence, teenage birth and '
-                        'media exposure are taken from above; add the other three factors here.</div>',
+                        'media exposure are taken from the left; add the other three factors here.</div>',
                         unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
             with c1:
@@ -456,31 +458,25 @@ with tab_one:
                 pick("distance", "Distance a big problem", "Distance to a health facility is a big problem for her.")
             st.markdown(f"**Vulnerability score: {vulnerability(x)} of 7** &nbsp;|&nbsp; "
                         f"**Media exposure index: {media_index(x)} of 6**")
-            submitted = st.button("Assess risk", type="primary", width="stretch", icon=":material/monitor_heart:")
-        if submitted:
-            with st.spinner("Calculating risk and explanation..."):
-                risk, ref_risk, phi = explain(tuple(sorted(x.items())), REF_KEY)
-            st.session_state["result"] = {"inputs": dict(x), "risk": risk, "ref_risk": ref_risk, "phi": phi}
 
-    with right:
-        res = st.session_state.get("result")
-        if res is None:
-            st.markdown(f"""
-<div class="risk-card" style="border-left: 8px solid #99f6e4;">
-  <div class="risk-label" style="color:{TEAL};">YOUR RESULT WILL APPEAR HERE</div>
-  <div class="risk-sub" style="margin-top:.4rem;">Enter the mother's details on the left and click <b>Assess risk</b>. You will see:</div>
-  <ol class="risk-sub" style="margin:.4rem 0 0 1.1rem; padding:0; line-height:1.7;">
-    <li>the predicted risk (%) and whether it is <b>high</b> or <b>low</b> (threshold {THRESHOLD:.0%});</li>
-    <li>suggested actions based on the WHO (2022) postnatal care recommendations;</li>
-    <li>the reasons behind the result (SHAP) and the 22 selected features computed for her.</li>
-  </ol>
-</div>""", unsafe_allow_html=True)
-        else:
-            if res["inputs"] != x:
-                st.warning("The inputs have changed. Click **Assess risk** to update the result.", icon=":material/refresh:")
-            risk, ref_risk, phi, xin = res["risk"], res["ref_risk"], res["phi"], res["inputs"]
-            high = risk >= THRESHOLD
-            color = RED if high else TEAL
+        submitted = st.button("Assess risk", type="primary", width="stretch", icon=":material/monitor_heart:")
+
+    if submitted:
+        with st.spinner("Calculating risk and explanation..."):
+            risk, ref_risk, phi = explain(tuple(sorted(x.items())), REF_KEY)
+        st.session_state["result"] = {"inputs": dict(x), "risk": risk, "ref_risk": ref_risk, "phi": phi}
+
+    # ---------------- output: below the form, full width ----------------
+    res = st.session_state.get("result")
+    if res is not None:
+        if res["inputs"] != x:
+            st.warning("The inputs have changed. Click **Assess risk** to update the result.", icon=":material/refresh:")
+        risk, ref_risk, phi, xin = res["risk"], res["ref_risk"], res["phi"], res["inputs"]
+        high = risk >= THRESHOLD
+        color = RED if high else TEAL
+
+        out_left, out_right = st.columns([1, 1.25], gap="large")
+        with out_left:
             st.markdown(f"""
 <div class="risk-card" style="border-left: 8px solid {color};">
   <div class="risk-label" style="color:{color};">{'HIGH RISK' if high else 'LOW RISK'} OF DELAYED POSTNATAL CARE</div>
@@ -492,6 +488,7 @@ with tab_one:
   mothers with delayed care in the test data (specificity 87.5%).</div>
 </div>""", unsafe_allow_html=True)
 
+        with out_right:
             st.markdown("#### Suggested actions")
             actions = ACTIONS_HIGH if high else ACTIONS_LOW
             bg, border = ("#fef2f2", "#fecaca") if high else ("#f0fdfa", "#99f6e4")
@@ -503,30 +500,30 @@ with tab_one:
   positive postnatal experience</i>, recommendation numbers as shown. <a href="{WHO_URL}">who.int</a></div>
 </div>""", unsafe_allow_html=True)
 
-            st.markdown("#### Why this result?")
-            contrib = pd.DataFrame({"factor": [player_text(n, k, xin) for n, k in PLAYERS], "points": phi * 100})
-            contrib["effect"] = np.where(contrib["points"] >= 0, "Raises risk", "Lowers risk")
-            contrib = contrib.reindex(contrib["points"].abs().sort_values(ascending=False).index)
-            top = contrib[contrib["points"].abs() >= 0.5].head(3)
-            if len(top):
-                st.markdown("Main reasons: " + "; ".join(
-                    f"**{r.factor}** ({'+' if r.points > 0 else ''}{r.points:.1f} points)" for r in top.itertuples()) + ".")
-            chart = alt.Chart(contrib).mark_bar(cornerRadius=3).encode(
-                x=alt.X("points:Q", title="Contribution to risk (percentage points)"),
-                y=alt.Y("factor:N", sort=None, title=None,
-                        axis=alt.Axis(labelLimit=320, labelOverlap=False, labelFontSize=12)),
-                color=alt.Color("effect:N", scale=alt.Scale(domain=["Raises risk", "Lowers risk"], range=[RED, TEAL]),
-                                legend=alt.Legend(orient="top", title=None)),
-                tooltip=[alt.Tooltip("factor:N", title="Input"), alt.Tooltip("points:Q", title="Points", format="+.1f")],
-            ).properties(height=30 * len(contrib))
-            st.altair_chart(chart, width="stretch")
-            st.caption(f"SHAP (exact Shapley) values over the input groups, compared with {REF_TEXT}; reference risk "
-                       f"{ref_risk:.0%}. The bars add up to this mother's risk minus the reference risk "
-                       f"({(risk - ref_risk) * 100:+.1f} points). They show how the model uses the inputs, not proven causes.")
+        st.markdown("#### Why this result?")
+        contrib = pd.DataFrame({"factor": [player_text(n, k, xin) for n, k in PLAYERS], "points": phi * 100})
+        contrib["effect"] = np.where(contrib["points"] >= 0, "Raises risk", "Lowers risk")
+        contrib = contrib.reindex(contrib["points"].abs().sort_values(ascending=False).index)
+        top = contrib[contrib["points"].abs() >= 0.5].head(3)
+        if len(top):
+            st.markdown("Main reasons: " + "; ".join(
+                f"**{r.factor}** ({'+' if r.points > 0 else ''}{r.points:.1f} points)" for r in top.itertuples()) + ".")
+        chart = alt.Chart(contrib).mark_bar(cornerRadius=3).encode(
+            x=alt.X("points:Q", title="Contribution to risk (percentage points)"),
+            y=alt.Y("factor:N", sort=None, title=None,
+                    axis=alt.Axis(labelLimit=320, labelOverlap=False, labelFontSize=12)),
+            color=alt.Color("effect:N", scale=alt.Scale(domain=["Raises risk", "Lowers risk"], range=[RED, TEAL]),
+                            legend=alt.Legend(orient="top", title=None)),
+            tooltip=[alt.Tooltip("factor:N", title="Input"), alt.Tooltip("points:Q", title="Points", format="+.1f")],
+        ).properties(height=30 * len(contrib))
+        st.altair_chart(chart, width="stretch")
+        st.caption(f"SHAP (exact Shapley) values over the input groups, compared with {REF_TEXT}; reference risk "
+                   f"{ref_risk:.0%}. The bars add up to this mother's risk minus the reference risk "
+                   f"({(risk - ref_risk) * 100:+.1f} points). They show how the model uses the inputs, not proven causes.")
 
-            with st.expander("The 22 selected features computed for this mother", icon=":material/table_view:"):
-                st.dataframe(selected_features(xin), hide_index=True, width="stretch", height=35 * 23 + 3)
-                st.caption("Values as the model sees them (ANC visits are capped at the training range).")
+        with st.expander("The 22 selected features computed for this mother", icon=":material/table_view:"):
+            st.dataframe(selected_features(xin), hide_index=True, width="stretch", height=35 * 23 + 3)
+            st.caption("Values as the model sees them (ANC visits are capped at the training range).")
 
 # ----------------------------------------------------------------------------------------------
 # Tab 2: many mothers
@@ -598,6 +595,6 @@ with tab_batch:
             st.download_button("Download results (CSV)", out.to_csv(index=False).encode("utf-8"),
                                file_name="pncare_results.csv", mime="text/csv", type="primary", icon=":material/download:")
 
-st.markdown('<div class="footer">PNCare-AI | Source study: Predictors of Delayed Postnatal Care-Seeking Among Mothers in '
-            'Bangladesh: An Explainable Machine Learning Approach Using Pooled BDHS 2017-2022 | Suggested actions follow '
+st.markdown('<div class="footer">PNCare-AI | Source study: PNCare-AI: An Explainable Machine Learning Framework for '
+            'Predicting Delayed Postnatal Care in Bangladesh Using BDHS 2017-18 and 2022 Data | Suggested actions follow '
             'WHO (2022) postnatal care recommendations | Decision support only.</div>', unsafe_allow_html=True)
